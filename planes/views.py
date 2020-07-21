@@ -50,6 +50,34 @@ import numpy as np
 
 
 user_rights = {}
+user_rights['administrator'] = (
+    'id',  # id need course you can create new or etc
+    'title',
+    'contract_mode',
+    'number_ppz',
+    'contract_status',
+    'register_number_SAP',
+    'contract_number',
+    'fact_sign_date',
+    'start_date',
+    'end_time',
+    'counterpart',
+    'related_contract',
+    'finance_cost',
+    'activity_form',
+    'plan_sum_SAP',
+    'contract_sum_without_NDS_BYN',
+    'forecast_total',
+    'economy_total',
+    'fact_total',
+    'purchase_type',
+    'number_PZTRU',
+    'stateASEZ',
+    'plan_load_date_ASEZ',
+    'fact_load_date_ASEZ',
+    'currency',
+    'number_KGG',
+)
 user_rights['lawyers'] = (
     'id',  # id need course you can create new or etc
     'contract_mode',
@@ -67,6 +95,12 @@ user_rights['economists'] = (
     'id',
     'finance_cost',
     'activity_form',
+
+    'plan_sum_SAP',
+    'contract_sum_without_NDS_BYN',
+    'forecast_total',
+    'economy_total',
+    'fact_total'
 )
 user_rights['spec_ASEZ'] = (
     'id',
@@ -79,6 +113,22 @@ user_rights['spec_ASEZ'] = (
     'currency',
     'number_KGG',
 )
+
+def this_user_rights(request):
+    block_list = [getattr(i, 'name') for i in Contract._meta.fields]
+
+    user_groups = request.user.groups.all()
+    this_user_in_groups = [i.name for i in user_groups]
+    this_user_can_do = []
+    for i in this_user_in_groups:
+        this_user_can_do.extend(user_rights[i])
+
+    this_user_can_do = set(this_user_can_do)
+
+    this_user_cant_do = [i for i in block_list if i not in this_user_can_do]
+    if 'id' in this_user_cant_do:
+        this_user_cant_do.remove('id')
+    return this_user_can_do, this_user_cant_do
 
 
 @login_required
@@ -176,6 +226,7 @@ class ContractView(View):
 
 
     def get(self, request):
+        print(request.GET)
         context = self.cont.copy()
         if request.GET.__contains__('search_name'):
             contracts = self.search(request)
@@ -185,30 +236,29 @@ class ContractView(View):
                 start_date__contains=self.today_year,
                 contract_active=True).order_by('-id')
 
+
         contract_and_sum = self.make_table(contracts)
 
         context['contracts'] = contracts
         context['contract_and_sum'] = contract_and_sum
 
         ''' rights '''
-        block_list = [getattr(i, 'name') for i in Contract._meta.fields]
+        # block_list = [getattr(i, 'name') for i in Contract._meta.fields]
+        #
+        # user_groups = request.user.groups.all()
+        # this_user_in_groups = [i.name for i in user_groups]
+        # this_user_can_do = []
+        # for i in this_user_in_groups:
+        #     this_user_can_do.extend(user_rights[i])
+        #
+        # this_user_can_do = set(this_user_can_do)
+        #
+        # this_user_cant_do = [i for i in block_list if i not in this_user_can_do]
+        # if 'id' in this_user_cant_do:
+        #     this_user_cant_do.remove('id')
+        this_user_can_do, this_user_cant_do = this_user_rights(request=request)
 
-        user_groups = request.user.groups.all()
-        this_user_in_groups = [i.name for i in user_groups]
-        this_user_can_do = []
-        for i in this_user_in_groups:
-            this_user_can_do.extend(user_rights[i])
-
-        this_user_can_do = set(this_user_can_do)
-
-        this_user_cant_do = [i for i in block_list if i not in this_user_can_do]
-        if 'id' in this_user_cant_do:
-            this_user_cant_do.remove('id')
-
-        print(this_user_can_do)
         context['this_user_can_do'] = this_user_can_do
-
-
 
         return render(request,
                       template_name=self.template_name,
@@ -371,6 +421,11 @@ class ContractFabric(View):
                 contract_id_list = request.GET.getlist('choosed[]')
                 Contract.objects.filter(id__in=contract_id_list).update(contract_active=False)
                 return HttpResponse('this is delete contract')
+            if request.GET['from_ajax'] == 'change_contract':
+                contract_id = request.GET['contract_id[]']
+                return HttpResponse('this is change_contract')
+
+
             if request.GET['from_ajax'] == 'change_table':
                 contract_id = request.GET['contract_id[]']
                 q_dic = {
@@ -380,6 +435,7 @@ class ContractFabric(View):
                 }
 
                 dic = dict(request.GET)
+                print(dic)
                 for key in dic:
                     if 'up_data' in key:
                         #  print(key)
@@ -395,7 +451,7 @@ class ContractFabric(View):
                         else:
                             val = str(val)
 
-                        if len(info) !=2 :
+                        if len(info) != 2:
                             quart = info[1]
                             this_model = q_dic[info[0]].get(period=quart)
                         else:
@@ -464,45 +520,34 @@ class ContractFabric(View):
             finance_cost_flag = False
             activity_form_flag = False
 
-            block_list = [getattr(i, 'name') for i in Contract._meta.fields]
+            this_user_can_do, this_user_cant_do = this_user_rights(request=request)
 
-            user_groups = request.user.groups.all()
-            this_user_in_groups = [i.name for i in user_groups]
-            this_user_can_do = []
-            for i in this_user_in_groups:
-
-                this_user_can_do.extend(user_rights[i])
-
-            this_user_can_do = set(this_user_can_do)
-
-            this_user_cant_do = [i for i in block_list if i not in this_user_can_do]
-            if 'id' in this_user_cant_do:
-                this_user_cant_do.remove('id')
-
-            for right in this_user_cant_do:
-                dic = {}
-                contract_form.fields[right].widget.attrs['disabled'] = 'disabled'
-                attribute = getattr(Contract.objects.get(id=contract_id), right)
-                dic['name'] = right
-                if attribute == None:
-                    attribute = ''
-                try:
-                    dic['value'] = attribute.id
-                except:
+            if Contract.objects.get(id=contract_id).create_by != request.user:
+                for right in this_user_cant_do:
+                    dic = {}
+                    contract_form.fields[right].widget.attrs['disabled'] = 'disabled'
+                    attribute = getattr(Contract.objects.get(id=contract_id), right)
+                    dic['name'] = right
+                    if attribute == None:
+                        attribute = ''
                     try:
-                        dic['value'] = attribute.isoformat()
+                        dic['value'] = attribute.id
                     except:
-                        dic['value'] = attribute
-                cant_do_this.append(dic)
+                        try:
+                            dic['value'] = attribute.isoformat()
+                        except:
+                            dic['value'] = attribute
+                    cant_do_this.append(dic)
 
-            if not request.user.groups.filter(name='economists').exists():
-                for form in formset_quarts:  # make fields readonly
-                    form.fields['plan_sum_SAP'].widget.attrs['readonly'] = 'readonly'
-                    form.fields['contract_sum_without_NDS_BYN'].widget.attrs['readonly'] = 'readonly'
-                for form in formset_months:  # make fields readonly
-                    form.fields['forecast_total'].widget.attrs['readonly'] = 'readonly'
-                    form.fields['fact_total'].widget.attrs['readonly'] = 'readonly'
-                sum_byn_year_form.fields['contract_sum_with_NDS_BYN'].widget.attrs['readonly'] = 'readonly'
+                if not request.user.groups.filter(name='economists').exists():
+                    for form in formset_quarts:  # make fields readonly
+                        form.fields['plan_sum_SAP'].widget.attrs['readonly'] = 'readonly'
+                        form.fields['contract_sum_without_NDS_BYN'].widget.attrs['readonly'] = 'readonly'
+                    for form in formset_months:  # make fields readonly
+                        form.fields['forecast_total'].widget.attrs['readonly'] = 'readonly'
+                        form.fields['fact_total'].widget.attrs['readonly'] = 'readonly'
+                    sum_byn_year_form.fields['contract_sum_with_NDS_BYN'].widget.attrs['readonly'] = 'readonly'
+
 
         return render(request,
                       template_name=self.create_or_add,
@@ -570,6 +615,7 @@ class ContractFabric(View):
                 new_sum_byn.year = new_sum_rur.year
                 new_sum_byn.save()
             if create_periods_flag:
+
                 for p in self.periods:
                     new_sum_byn = SumsBYN.objects.create(
                         period=p,
@@ -779,8 +825,6 @@ class parse_excel(View):
 
             try:
                 date_start = str(line['Дата заключения']).split(' ')[0]
-                print(date_start)
-                print(type(date_start))
                 if not date_start != 'NaT':
                     date_start = None
             except:

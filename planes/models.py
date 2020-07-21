@@ -273,6 +273,13 @@ class Contract(models.Model):
         verbose_name = 'Договор'
         verbose_name_plural = 'Договоры'
 
+    create_by = models.ForeignKey(
+        User,
+        on_delete = models.DO_NOTHING,
+        verbose_name='Создал/ответственный',
+        null=True,
+        blank=True
+    )
     title = models.CharField(
         max_length=150,
         verbose_name="Наименование договора"
@@ -377,6 +384,8 @@ class Contract(models.Model):
     )
     start_date = models.DateField(
         verbose_name="дата начала контракта",
+        null=True,
+        blank=True
     )
     end_time = models.DateField(
         verbose_name="дата окончания",
